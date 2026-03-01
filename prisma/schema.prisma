@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  nodes       Json     // Node[]
+  edges       Json     // Edge[]
+  userId      String
+  isPublic    Boolean  @default(false)
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  executions  WorkflowExecution[]
+  templates   WorkflowTemplate[]
+  preferences UserPreferences[]
+  
+  @@index([userId])
+  @@index([isPublic])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model WorkflowExecution {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  userId      String
+  status      String   // pending, running, completed, failed, cancelled, partial
+  nodes       Json     // Execution node states
+  results     Json?    // Execution results
+  trigger     String   // manual, scheduled, api
+  scope       String   // full, partial, single
+  nodeIds     String[] @default([]) // For partial executions
+  createdAt   DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  executionTime Int?   // in milliseconds
+  
+  @@index([workflowId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([completedAt])
+}
+
+model WorkflowTemplate {
+  id          String   @id @default(cuid())
+  workflowId  String
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  category    String
+  tags        String[] @default([])
+  isPublic    Boolean  @default(false)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  usageCount  Int      @default(0)
+  rating      Float    @default(0)
+  
+  @@index([category])
+  @@index([isPublic])
+  @@index([createdAt])
+  @@unique([workflowId, name])
+}
+
+model UserPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  theme     String   @default("system") // light, dark, system
+  autoSave  Boolean  @default(true)
+  autoSaveInterval Int @default(30000) // 30 seconds
+  notifications Json // Notification preferences
+  editor    Json   // Editor preferences
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  workflow  Workflow? @relation(fields: [workflowId], references: [id])
+  workflowId String?
+  
+  @@index([userId])
+}
+
+model ExecutionHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  workflowId  String?
+  executionId String
+  name        String
+  description String?
+  status      String   // pending, running, completed, failed, cancelled, partial
+  trigger     String   // manual, scheduled, api
+  scope       String   // full, partial, single
+  nodes       Json     // Node execution details
+  results     Json?    // Execution results
+  executionTime Int?   // in milliseconds
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  @@index([userId])
+  @@index([workflowId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model FileUpload {
+  id          String   @id @default(cuid())
+  userId      String
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  url         String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  key         String   @unique
+  permissions String[] // permissions array
+  expiresAt   DateTime?
+  lastUsedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  
+  @@index([userId])
+  @@index([key])
+  @@index([isActive])
+}
+
+// Enable PostgreSQL extensions
+// This will be created in a migration
+// CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+// CREATE EXTENSION IF NOT EXISTS "pg_trgm";

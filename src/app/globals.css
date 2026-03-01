@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 9% 83.9%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+
+    /* Krea.ai Dark Theme */
+    --krea-background: 240 10% 4%;
+    --krea-surface: 240 10% 10%;
+    --krea-border: 240 10% 15%;
+    --krea-node: 240 10% 12%;
+    --krea-node-border: 240 10% 20%;
+    --krea-node-hover: 240 10% 18%;
+    --krea-text-primary: 0 0% 100%;
+    --krea-text-secondary: 240 10% 70%;
+    --krea-text-muted: 240 10% 50%;
+    --krea-connection: 270 70% 60%;
+    --krea-connection-hover: 270 70% 70%;
+    --krea-success: 142 71% 45%;
+    --krea-warning: 38 92% 50%;
+    --krea-error: 0 84% 60%;
+    --krea-info: 217 91% 60%;
+  }
+
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 270 70% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 10% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 10% 70%;
+    --accent: 240 10% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 10% 20%;
+    --input: 240 10% 20%;
+    --ring: 270 70% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* React Flow Custom Styles */
+.react-flow {
+  background-color: hsl(var(--krea-background));
+  background-image: radial-gradient(circle at 1px 1px, hsl(var(--krea-border)) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.react-flow__node {
+  background: hsl(var(--krea-node));
+  border: 1px solid hsl(var(--krea-node-border));
+  border-radius: var(--radius);
+  color: hsl(var(--krea-text-primary));
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.react-flow__node:hover {
+  border-color: hsl(var(--krea-connection));
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.react-flow__handle {
+  background: hsl(var(--krea-connection));
+  border: 2px solid hsl(var(--krea-text-primary));
+  width: 10px;
+  height: 10px;
+}
+
+.react-flow__handle:hover {
+  background: hsl(var(--krea-connection-hover));
+}
+
+.react-flow__edge-path {
+  stroke: hsl(var(--krea-connection));
+  stroke-width: 2;
+}
+
+.react-flow__edge.animated path {
+  stroke-dasharray: 10;
+  animation: dash 1s linear infinite;
+}
+
+.react-flow__controls {
+  background: hsl(var(--krea-surface));
+  border: 1px solid hsl(var(--krea-border));
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__minimap {
+  background: hsl(var(--krea-surface));
+  border: 1px solid hsl(var(--krea-border));
+  border-radius: var(--radius);
+}
+
+/* Custom Animations */
+@keyframes 
