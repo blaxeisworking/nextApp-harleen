@@ -139,7 +139,7 @@ export default function WorkflowsPage() {
         fitView
         snapToGrid
         snapGrid={[20, 20]}
-        connectionLineType="bezier"
+        connectionLineType={'smooth' as any}
         connectionRadius={10}
       >
         <Background color="#2a2a2a" gap={20} size={1} />
