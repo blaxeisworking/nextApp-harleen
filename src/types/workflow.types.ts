@@ -34,6 +34,8 @@ export interface WorkflowExecution {
   id: string;
   workflowId: string;
   userId: string;
+  name?: string;
+  description?: string;
   status: ExecutionStatus;
   nodes: Record<string, {
     status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';

@@ -10,8 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDate } from '@/lib/utils/formatting'
 
 export default function RightSidebar() {
-  const { executionHistory, toggleSidebar } = useUIStore()
-  const { workflow } = useWorkflowStore()
+  const { toggleSidebar } = useUIStore()
+  const { workflow, executionHistory } = useWorkflowStore()
   const [expandedRun, setExpandedRun] = useState<string | null>(null)
 
   const getStatusIcon = (status: string) => {

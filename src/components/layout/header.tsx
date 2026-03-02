@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 
 export default function Header() {
   const { theme, setTheme, sidebar, toggleSidebar } = useUIStore()
-  const { workflow, saveWorkflow, isExecuting } = useWorkflowStore()
+  const { workflow, saveWorkflow, executeWorkflow, isExecuting } = useWorkflowStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [mounted, setMounted] = useState(false)
   const [isDark, setIsDark] = useState(false)
@@ -29,8 +29,7 @@ export default function Header() {
   }
 
   const handleExecute = async () => {
-    await saveWorkflow()
-    console.log('Execute workflow - coming soon')
+    await executeWorkflow()
   }
 
   const toggleTheme = () => {

@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useUIStore } from '@/stores/ui-store'
-import { Plus, Type, Image, Video, Bot, Scissors, Film, Search, X } from 'lucide-react'
+import { Plus, Type, Image, Video, Bot, Scissors, Film, Search, X, Download } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,6 +73,7 @@ const nodeTypes = [
 export default function LeftSidebar() {
   const { addNode, setNodes, nodes } = useWorkflowStore()
   const { toggleSidebar } = useUIStore()
+  const [searchQuery, setSearchQuery] = useState('')
 
   const onAddNode = useCallback((type: string) => {
     // Use fallback if NODE_CONFIGS is undefined or missing the type
@@ -101,30 +102,57 @@ export default function LeftSidebar() {
     event.dataTransfer.effectAllowed = 'move'
   }, [])
 
+  const handleImportSample = useCallback(async () => {
+    try {
+      const res = await fetch('/api/workflows/import', { method: 'POST' })
+      const json = await res.json()
+      if (!json.success) {
+        console.error('Import failed:', json.error)
+        return
+      }
+      // Optionally reload workflows or navigate
+      window.location.reload()
+    } catch (err) {
+      console.error('Import error:', err)
+    }
+  }, [])
+
   return (
     <div className="flex flex-col h-full bg-krea-surface border-r border-krea-border">
       {/* Header */}
       <div className="p-4 border-b border-krea-border">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-krea-text-primary">Quick Access</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-krea-text-primary">Quick Access</h2>
           <Button
             variant="ghost"
-            size="icon"
-            onClick={() => toggleSidebar('left')}
-            className="h-8 w-8 hover:bg-krea-accent"
+            size="sm"
+            onClick={toggleSidebar}
+            className="text-krea-text-muted hover:text-krea-text-primary"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
-        
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-krea-text-muted" />
           <Input
-            type="text"
             placeholder="Search nodes..."
-            className="pl-10 pr-4 py-2 bg-krea-node border-krea-node-border rounded-lg text-sm focus:ring-2 focus:ring-krea-primary"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-krea-surface border-krea-border text-krea-text-primary placeholder:text-krea-text-muted"
           />
         </div>
+      </div>
+
+      {/* Import Sample Workflow */}
+      <div className="p-4 border-b border-krea-border">
+        <Button
+          onClick={handleImportSample}
+          className="w-full bg-krea-primary hover:bg-krea-primary/90 text-white"
+          variant="default"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Import Sample Workflow
+        </Button>
       </div>
 
       {/* Node Types */}

@@ -1,25 +1,30 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useMemo } from 'react'
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   useReactFlow,
-  addEdge,
-  applyNodeChanges,
-  applyEdgeChanges,
   type Node,
   type Edge,
   type Connection,
   type NodeChange,
   type EdgeChange,
+  useKeyPress,
 } from '@xyflow/react'
 import { useWorkflowStore } from '@/stores/workflow-store'
 import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils/helpers'
-import { NODE_CONFIGS } from '@/lib/utils/constants'
+import { validateConnection, wouldCreateCycle } from '@/lib/utils/connections'
+import CustomEdge from '@/components/workflow/custom-edge'
+import TextNode from '@/components/nodes/text-node'
+import ImageNode from '@/components/nodes/image-node'
+import VideoNode from '@/components/nodes/video-node'
+import LLMNode from '@/components/nodes/llm-node'
+import CropNode from '@/components/nodes/crop-node'
+import ExtractFrameNode from '@/components/nodes/extract-frame-node'
 import '@xyflow/react/dist/style.css'
 
 const defaultEdgeOptions = {
@@ -28,6 +33,19 @@ const defaultEdgeOptions = {
     stroke: '#8b5cf6',
     strokeWidth: 2,
   },
+}
+
+const nodeTypes = {
+  text: TextNode,
+  image: ImageNode,
+  video: VideoNode,
+  llm: LLMNode,
+  crop: CropNode,
+  'extract-frame': ExtractFrameNode,
+}
+
+const edgeTypes = {
+  custom: CustomEdge,
 }
 
 export default function Canvas() {
@@ -71,10 +89,10 @@ export default function Canvas() {
 
       const newNode: Node = {
         id: `${type}-${Date.now()}`,
-        type: 'default',
+        type,
         position,
         data: {
-          label: NODE_CONFIGS[type as keyof typeof NODE_CONFIGS]?.label || type,
+          label: type,
           type,
           value: '',
           config: {},
@@ -95,6 +113,27 @@ export default function Canvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        isValidConnection={(connection: Connection) => {
+          const source = nodes.find((n) => n.id === connection.source)
+          const target = nodes.find((n) => n.id === connection.target)
+
+          if (!source || !target) return false
+          if (!connection.sourceHandle || !connection.targetHandle) return false
+
+          const validation = validateConnection(
+            source.type,
+            target.type,
+            connection.sourceHandle,
+            connection.targetHandle
+          )
+
+          if (!validation.isValid) return false
+          if (wouldCreateCycle(source.id, target.id, nodes, edges)) return false
+
+          return true
+        }}
         onDragOver={onDragOver}
         onDrop={onDrop}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -122,12 +161,25 @@ export default function Canvas() {
         {showMinimap && (
           <MiniMap
             className="bg-krea-surface border border-krea-border rounded-lg shadow-lg"
-            maskColor="rgba(99, 102, 241, 0.3)"
-            nodeColor="#6366f1"
-            nodeStrokeColor="#8b5cf6"
+            nodeColor={(node) => {
+              switch (node.type) {
+                case 'text': return '#3b82f6'
+                case 'image': return '#10b981'
+                case 'video': return '#8b5cf6'
+                case 'llm': return '#f97316'
+                case 'crop': return '#eab308'
+                case 'extract-frame': return '#06b6d4'
+                default: return '#6b7280'
+              }
+            }}
             nodeStrokeWidth={2}
             pannable
             zoomable
+            position="bottom-right"
+            style={{
+              backgroundColor: 'var(--krea-surface)',
+              border: '1px solid var(--krea-border)',
+            }}
           />
         )}
       </ReactFlow>

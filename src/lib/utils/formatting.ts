@@ -196,6 +196,22 @@ export const formatDate = {
     return `${years}y ago`;
   },
 
+  formatDuration: (ms: number): string => {
+    if (!Number.isFinite(ms) || ms < 0) return '0ms';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+
+    const totalSeconds = Math.round(ms / 1000);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes < 60) return `${minutes}m ${seconds}s`;
+
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  },
+
   // Check if date is today
   isToday: (date: Date | string): boolean => {
     const d = new Date(date);
@@ -242,7 +258,7 @@ export const formatArray = {
 
   // Get unique items
   unique: <T>(arr: T[]): T[] => {
-    return [...new Set(arr)];
+    return Array.from(new Set(arr));
   },
 
   // Shuffle array

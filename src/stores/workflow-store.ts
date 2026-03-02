@@ -13,6 +13,7 @@ import {
 import { CustomNodeData } from '@/types/node.types'
 import { Workflow, WorkflowExecution } from '@/types/workflow.types'
 import { generateId, deepClone } from '@/lib/utils/helpers'
+import { validateConnection, wouldCreateCycle, getConnectionColor } from '@/lib/utils/connections'
 
 interface WorkflowState {
   workflow: Workflow | null
@@ -27,6 +28,9 @@ interface WorkflowState {
   currentExecution: WorkflowExecution | null
 
   zoom: number
+  // Undo/Redo history
+  history: { nodes: Node<CustomNodeData>[]; edges: Edge[] }[]
+  historyIndex: number
   center: { x: number; y: number }
   snapToGrid: boolean
   gridSize: number
@@ -139,9 +143,42 @@ export const useWorkflowStore = create<WorkflowState>()(
           })),
 
         onConnect: (connection) =>
-          set((s) => ({
-            edges: addEdge(connection, s.edges),
-          })),
+          set((s) => {
+            const source = s.nodes.find((n) => n.id === connection.source)
+            const target = s.nodes.find((n) => n.id === connection.target)
+
+            if (!source || !target) return s
+            if (!connection.sourceHandle || !connection.targetHandle) return s
+
+            const validation = validateConnection(
+              source.type,
+              target.type,
+              connection.sourceHandle,
+              connection.targetHandle
+            )
+
+            if (!validation.isValid) return s
+            if (wouldCreateCycle(source.id, target.id, s.nodes, s.edges)) return s
+
+            const stroke = getConnectionColor(validation.rule?.type ?? 'text')
+            const nextEdges = addEdge(
+              {
+                ...connection,
+                type: 'custom',
+                animated: true,
+                style: {
+                  stroke,
+                  strokeWidth: 2,
+                },
+              },
+              s.edges
+            )
+
+            return {
+              ...s,
+              edges: nextEdges,
+            }
+          }),
 
         removeEdge: (edgeId) =>
           set((s) => ({
@@ -292,13 +329,131 @@ export const useWorkflowStore = create<WorkflowState>()(
           }
         },
 
-        saveWorkflow: async () => {},
-        loadWorkflow: async () => {},
-        executeWorkflow: async () => {},
+        saveWorkflow: async () => {
+          const { workflow, nodes, edges } = get()
+          if (!workflow) return
+
+          const payload = {
+            name: workflow.name,
+            description: workflow.description,
+            tags: workflow.tags ?? [],
+            nodes,
+            edges,
+          }
+
+          const updateRes = await fetch(`/api/workflows/${workflow.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+
+          if (updateRes.status === 404) {
+            const createRes = await fetch('/api/workflows', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            })
+
+            if (!createRes.ok) {
+              const text = await createRes.text().catch(() => '')
+              throw new Error(text || 'Failed to create workflow')
+            }
+
+            const createdJson = await createRes.json().catch(() => null)
+            if (createdJson?.success && createdJson?.data) {
+              // Replace the local workflow with the DB workflow (real id)
+              set({ workflow: createdJson.data })
+            }
+            return
+          }
+
+          if (!updateRes.ok) {
+            const text = await updateRes.text().catch(() => '')
+            throw new Error(text || 'Failed to save workflow')
+          }
+
+          const json = await updateRes.json().catch(() => null)
+          if (json?.success && json?.data) {
+            set({ workflow: json.data })
+          }
+        },
+
+        loadWorkflow: async (id: string) => {
+          const res = await fetch(`/api/workflows/${id}`, { method: 'GET' })
+          if (!res.ok) {
+            const text = await res.text().catch(() => '')
+            throw new Error(text || 'Failed to load workflow')
+          }
+
+          const json = await res.json().catch(() => null)
+          if (!json?.success || !json?.data) return
+
+          const wf: Workflow = json.data
+          set({
+            workflow: wf,
+            nodes: (wf.nodes as any) ?? [],
+            edges: (wf.edges as any) ?? [],
+            selectedNodes: [],
+            selectedEdges: [],
+          })
+        },
+
+        executeWorkflow: async () => {
+          const { workflow } = get()
+          if (!workflow) return
+
+          // Ensure persisted first (gives us a DB workflow id)
+          await get().saveWorkflow()
+          const wf = get().workflow
+          if (!wf) return
+
+          const res = await fetch(`/api/workflows/${wf.id}/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+
+          if (!res.ok) {
+            const text = await res.text().catch(() => '')
+            throw new Error(text || 'Failed to execute workflow')
+          }
+
+          // Refresh history so right sidebar updates immediately
+          await get().loadExecutionHistory()
+        },
         executeNode: async () => {},
         executeSelected: async () => {},
         stopExecution: () => {},
-        loadExecutionHistory: async () => {},
+
+        loadExecutionHistory: async () => {
+          const res = await fetch('/api/history', { method: 'GET' })
+          if (!res.ok) {
+            const text = await res.text().catch(() => '')
+            throw new Error(text || 'Failed to load history')
+          }
+
+          const json = await res.json().catch(() => null)
+          if (!json?.success || !Array.isArray(json.data)) return
+
+          // Map ExecutionHistory rows into the WorkflowExecution shape expected by UI.
+          const mapped: WorkflowExecution[] = json.data.map((row: any) => ({
+            id: row.executionId ?? row.id,
+            workflowId: row.workflowId ?? '',
+            userId: row.userId,
+            name: row.name,
+            description: row.description,
+            status: row.status,
+            nodes: row.nodes ?? {},
+            results: row.results ?? undefined,
+            createdAt: new Date(row.createdAt),
+            completedAt: row.completedAt ? new Date(row.completedAt) : undefined,
+            executionTime: row.executionTime ?? undefined,
+            trigger: row.trigger,
+            scope: row.scope,
+            nodeIds: row.nodeIds ?? undefined,
+          }))
+
+          set({ executionHistory: mapped })
+        },
         clearExecutionHistory: () => set({ executionHistory: [] }),
       }),
       {

@@ -25,4 +25,9 @@ export const imageFileSchema = fileSchema.refine(
 );
 
 export const videoFileSchema = fileSchema.refine(
-  (file*
+  (file) => file.type.startsWith('video/'),
+  { message: 'File must be a video' }
+);
+
+// Generic helpers
+export const nonEmptyStringSchema = z.string().min(1);

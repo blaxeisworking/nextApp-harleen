@@ -82,3 +82,56 @@ export const NODE_TYPES = {
   CROP: 'crop',
   EXTRACT_FRAME: 'extract-frame',
 }
+
+export const NODE_CONFIGS = {
+  [NODE_TYPES.TEXT]: {
+    label: 'Text Node',
+    description: 'Simple text input with textarea',
+    category: 'input',
+    color: 'bg-blue-500',
+  },
+  [NODE_TYPES.IMAGE]: {
+    label: 'Upload Image',
+    description: 'Upload image file (jpg, png, webp, gif)',
+    category: 'input',
+    color: 'bg-purple-500',
+  },
+  [NODE_TYPES.VIDEO]: {
+    label: 'Upload Video',
+    description: 'Upload video file (mp4, mov, webm)',
+    category: 'input',
+    color: 'bg-pink-500',
+  },
+  [NODE_TYPES.LLM]: {
+    label: 'Run Any LLM',
+    description: 'Execute LLM models via Google Gemini',
+    category: 'processing',
+    color: 'bg-orange-500',
+  },
+  [NODE_TYPES.CROP]: {
+    label: 'Crop Image',
+    description: 'Crop image using FFmpeg',
+    category: 'processing',
+    color: 'bg-yellow-500',
+  },
+  [NODE_TYPES.EXTRACT_FRAME]: {
+    label: 'Extract Frame',
+    description: 'Extract frame from video',
+    category: 'processing',
+    color: 'bg-cyan-500',
+  },
+} as const
+
+export const NOTIFICATION_DURATION = {
+  success: 3000,
+  error: 5000,
+  warning: 4000,
+  info: 3000,
+} as const
+
+export const VALIDATION_RULES = {
+  TEXT_INPUT: { MIN: 0, MAX: 8000 },
+  WORKFLOW_NAME: { MIN: 1, MAX: 100 },
+  NODE_LABEL: { MIN: 1, MAX: 100 },
+  PERCENTAGE: { MIN: 0, MAX: 100 },
+} as const
