@@ -1,6 +1,5 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { CUSTOM_DATE_FORMAT } from './constants';
 
 // Tailwind CSS utility
 export function cn(...inputs: ClassValue[]) {
@@ -29,9 +28,9 @@ export function formatDuration(ms: number): string {
 // Format date
 export function formatDate(date: Date | string, format?: string): string {
   const d = new Date(date);
-  const f = format || CUSTOM_DATE_FORMAT;
+  const f = format || 'YYYY-MM-DD HH:mm:ss';
   
-  return f.replace(/YYYY|MM|DD|HH|mm|ss|SSS/g, (match) => {
+  return f.replace(/YYYY|MM|DD|HH|mm|ss|SSS/g, (match: string) => {
     switch (match) {
       case 'YYYY': return d.getFullYear().toString();
       case 'MM': return (d.getMonth() + 1).toString().padStart(2, '0');
