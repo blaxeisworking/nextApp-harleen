@@ -104,7 +104,8 @@ export default function WorkflowsPage() {
         },
       }
 
-      setEdges((eds) => addEdge(newEdge, eds))
+      const edges = useWorkflowStore.getState().edges
+      setEdges(addEdge(newEdge, edges))
     },
     [setEdges]
   )
