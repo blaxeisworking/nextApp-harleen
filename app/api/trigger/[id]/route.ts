@@ -9,9 +9,9 @@ import { TriggerTask } from '@/types/trigger.types'
  */
 export async function GET(
   _req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: taskId } = ctx.params
+  const { id: taskId } = await params
   if (!taskId) {
     return NextResponse.json({ success: false, error: 'Missing task ID' }, { status: 400 })
   }
@@ -32,9 +32,9 @@ export async function GET(
  */
 export async function POST(
   req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id: taskId } = ctx.params
+  const { id: taskId } = await params
   const body = await req.json().catch(() => null) as Partial<TriggerTask>
 
   if (!body || body.id !== taskId) {
