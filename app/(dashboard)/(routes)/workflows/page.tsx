@@ -66,8 +66,8 @@ export default function WorkflowsPage() {
       }
 
       const validation = validateConnection(
-        sourceNode.type,
-        targetNode.type,
+        sourceNode?.type || '',
+        targetNode?.type || '',
         connection.sourceHandle || '',
         connection.targetHandle || ''
       )
