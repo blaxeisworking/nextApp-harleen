@@ -6,14 +6,14 @@ import { updateWorkflowSchema } from '@/lib/validations/workflow-schemas'
 
 export async function GET(
   _req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = auth()
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id } = ctx.params
+  const { id } = await params
 
   const workflow = await prisma.workflow.findFirst({
     where: { id, userId },
@@ -28,14 +28,14 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = auth()
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id } = ctx.params
+  const { id } = await params
 
   const json = await req.json().catch(() => null)
   const parsed = updateWorkflowSchema.safeParse(json)
@@ -67,14 +67,14 @@ export async function PUT(
 
 export async function DELETE(
   _req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = auth()
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id } = ctx.params
+  const { id } = await params
 
   const deleted = await prisma.workflow.deleteMany({
     where: { id, userId },
