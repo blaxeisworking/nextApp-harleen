@@ -124,8 +124,8 @@ export default function WorkflowsPage() {
   return (
     <div className="h-full w-full bg-krea-background">
       <ReactFlow
-        nodes={Array.isArray(nodes) ? nodes : []}
-        edges={Array.isArray(edges) ? edges : []}
+        nodes={Array.isArray(nodes) ? (nodes as any) : []}
+        edges={Array.isArray(edges) ? (edges as any) : []}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
