@@ -61,14 +61,14 @@ class TriggerNodeRunner implements NodeRunner {
 
 export async function POST(
   _req: Request,
-  ctx: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = auth()
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { id: workflowId } = ctx.params
+  const { id: workflowId } = await params
 
   const workflow = await prisma.workflow.findFirst({
     where: { id: workflowId, userId },
