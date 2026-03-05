@@ -1,7 +1,6 @@
 'use client'
 
 import { Github, Twitter, Linkedin, BookOpen } from 'lucide-react'
-import { cn } from '@/lib/utils/helpers'
 
 export default function Footer() {
   return (

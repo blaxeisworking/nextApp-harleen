@@ -1,15 +1,15 @@
-import { Node, NodeProps } from '@xyflow/react';
+import { Node } from '@xyflow/react';
 
 // Base node data interface
-export interface BaseNodeData {
+export interface BaseNodeData extends Record<string, unknown> {
   label: string;
   type: string;
-  value?: any;
-  config?: Record<string, any>;
+  value?: unknown;
+  config?: Record<string, unknown>;
   isExecuting?: boolean;
   executionTime?: number;
   error?: string;
-  outputs?: Record<string, any>;
+  outputs?: Record<string, unknown>;
 }
 
 // Specific node data types
@@ -92,13 +92,6 @@ export type CustomNodeData =
 
 // Node types with proper typing
 export type CustomNode = Node<CustomNodeData>;
-
-// Node component props
-export interface CustomNodeProps extends NodeProps<CustomNodeData> {
-  data: CustomNodeData;
-  isConnectable?: boolean;
-  selected?: boolean;
-}
 
 // Connection validation
 export interface ConnectionRule {

@@ -1,10 +1,11 @@
 'use client'
 
 import { memo, useCallback, useRef, useState } from 'react'
-import { Handle, Position, useReactFlow } from '@xyflow/react'
-import { Video, Upload, X } from 'lucide-react'
+import { Handle, Position } from '@xyflow/react'
+import { Video, Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/helpers'
+import { useWorkflowStore } from '@/stores/workflow-store'
 
 interface VideoNodeData {
   label: string
@@ -24,7 +25,9 @@ interface VideoNodeProps {
 function VideoNode({ id, data, selected }: VideoNodeProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const { setNodes } = useReactFlow()
+  const [isUploading, setIsUploading] = useState(false)
+  const updateNode = useWorkflowStore((s) => s.updateNode)
+  const removeNode = useWorkflowStore((s) => s.removeNode)
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -33,24 +36,44 @@ function VideoNode({ id, data, selected }: VideoNodeProps) {
         return
       }
 
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                value: URL.createObjectURL(file),
-                fileName: file.name,
-                fileSize: file.size,
-              },
-            }
-          }
-          return n
+      setIsUploading(true)
+      updateNode(id, {
+        isExecuting: true,
+        fileName: file.name,
+        fileSize: file.size,
+      })
+
+      try {
+        const form = new FormData()
+        form.append('file', file)
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: form,
         })
-      )
+
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json?.success || !json?.data?.url) {
+          const message = json?.error || 'Failed to upload video'
+          throw new Error(message)
+        }
+
+        // Store the server URL so backend workflows can access it.
+        updateNode(id, {
+          value: json.data.url as string,
+          isExecuting: false,
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        alert(message)
+        updateNode(id, {
+          isExecuting: false,
+        })
+      } finally {
+        setIsUploading(false)
+      }
     },
-    [id, setNodes]
+    [id, updateNode]
   )
 
   const handleDrop = useCallback(
@@ -67,23 +90,12 @@ function VideoNode({ id, data, selected }: VideoNodeProps) {
   )
 
   const handleClear = useCallback(() => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === id) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              value: '',
-              fileName: undefined,
-              fileSize: undefined,
-            },
-          }
-        }
-        return n
-      })
-    )
-  }, [id, setNodes])
+    updateNode(id, {
+      value: '',
+      fileName: undefined,
+      fileSize: undefined,
+    })
+  }, [id, updateNode])
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -111,7 +123,7 @@ function VideoNode({ id, data, selected }: VideoNodeProps) {
           variant="ghost"
           size="icon"
           onClick={() => {
-            setNodes((nds) => nds.filter((n) => n.id !== id))
+            removeNode(id)
           }}
           className="h-6 w-6 hover:bg-krea-accent hover:text-krea-error"
         >
@@ -142,15 +154,25 @@ function VideoNode({ id, data, selected }: VideoNodeProps) {
             )}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload className="w-8 h-8 text-krea-text-muted mx-auto mb-2" />
-            <p className="text-sm text-krea-text-primary">Drop video here or click to upload</p>
-            <p className="text-xs text-krea-text-muted mt-1">MP4, MOV, WEBM (max 100MB)</p>
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 text-krea-text-muted animate-spin" />
+                <p className="text-sm text-krea-text-primary">Uploading…</p>
+              </div>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 text-krea-text-muted mx-auto mb-2" />
+                <p className="text-sm text-krea-text-primary">Drop video here or click to upload</p>
+                <p className="text-xs text-krea-text-muted mt-1">MP4, MOV, WEBM (max 100MB)</p>
+              </>
+            )}
             
             <input
               ref={fileInputRef}
               type="file"
               accept="video/*"
               onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              disabled={isUploading}
               className="hidden"
             />
           </div>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { generateId } from '@/lib/utils/helpers'
 import { NODE_TYPES, NODE_CONFIGS } from '@/lib/utils/constants'
+import type { CustomNodeData } from '@/types/node.types'
 
 
 const NODE_TYPES_FALLBACK = {
@@ -71,13 +72,58 @@ const nodeTypes = [
 ]
 
 export default function LeftSidebar() {
-  const { addNode, setNodes, nodes } = useWorkflowStore()
+  const { addNode, nodes } = useWorkflowStore()
   const { toggleSidebar } = useUIStore()
   const [searchQuery, setSearchQuery] = useState('')
 
   const onAddNode = useCallback((type: string) => {
     // Use fallback if NODE_CONFIGS is undefined or missing the type
     const nodeConfig = NODE_CONFIGS?.[type as keyof typeof NODE_CONFIGS] ?? { label: type }
+    const baseData = {
+      label: nodeConfig.label,
+      type,
+      isExecuting: false,
+    } as const
+
+    const dataForType = (() => {
+      switch (type) {
+        case NODE_TYPES_FALLBACK.TEXT:
+          return { ...baseData, type: 'text' as const, value: '' }
+        case NODE_TYPES_FALLBACK.IMAGE:
+          return { ...baseData, type: 'image' as const, value: '' }
+        case NODE_TYPES_FALLBACK.VIDEO:
+          return { ...baseData, type: 'video' as const, value: '' }
+        case NODE_TYPES_FALLBACK.LLM:
+          return {
+            ...baseData,
+            type: 'llm' as const,
+            value: '',
+            config: {
+              model: 'gemini-1.5-flash',
+              systemPrompt: '',
+              userMessage: '',
+              images: [],
+            },
+          }
+        case NODE_TYPES_FALLBACK.CROP:
+          return {
+            ...baseData,
+            type: 'crop' as const,
+            value: '',
+            config: { imageUrl: '', x: 0, y: 0, width: 100, height: 100 },
+          }
+        case NODE_TYPES_FALLBACK.EXTRACT_FRAME:
+          return {
+            ...baseData,
+            type: 'extract-frame' as const,
+            value: '',
+            config: { videoUrl: '', timestamp: '' },
+          }
+        default:
+          return { ...baseData, type, value: '', config: {} }
+      }
+    })()
+
     const newNode = {
       id: `${type}-${generateId()}`,
       type,
@@ -85,13 +131,7 @@ export default function LeftSidebar() {
         x: Math.random() * 400 + 100, 
         y: Math.random() * 400 + 100 
       },
-      data: {
-        label: nodeConfig.label,
-        type,
-        value: '',
-        config: {},
-        isExecuting: false,
-      },
+      data: dataForType as CustomNodeData,
     }
     
     addNode(newNode)
@@ -126,7 +166,7 @@ export default function LeftSidebar() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={toggleSidebar}
+            onClick={() => toggleSidebar('left')}
             className="text-krea-text-muted hover:text-krea-text-primary"
           >
             <X className="w-4 h-4" />

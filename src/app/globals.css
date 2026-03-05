@@ -25,18 +25,18 @@
     --ring: 240 5.9% 10%;
     --radius: 0.5rem;
 
-    /* Krea.ai Dark Theme */
-    --krea-background: 240 10% 4%;
-    --krea-surface: 240 10% 10%;
-    --krea-border: 240 10% 15%;
-    --krea-node: 240 10% 12%;
-    --krea-node-border: 240 10% 20%;
-    --krea-node-hover: 240 10% 18%;
-    --krea-text-primary: 0 0% 100%;
-    --krea-text-secondary: 240 10% 70%;
-    --krea-text-muted: 240 10% 50%;
-    --krea-connection: 270 70% 60%;
-    --krea-connection-hover: 270 70% 70%;
+    /* Krea tokens are derived from the active theme tokens */
+    --krea-background: var(--background);
+    --krea-surface: var(--card);
+    --krea-border: var(--border);
+    --krea-node: var(--card);
+    --krea-node-border: var(--border);
+    --krea-node-hover: var(--accent);
+    --krea-text-primary: var(--foreground);
+    --krea-text-secondary: var(--muted-foreground);
+    --krea-text-muted: var(--muted-foreground);
+    --krea-connection: var(--primary);
+    --krea-connection-hover: var(--ring);
     --krea-success: 142 71% 45%;
     --krea-warning: 38 92% 50%;
     --krea-error: 0 84% 60%;
@@ -130,4 +130,8 @@
 }
 
 /* Custom Animations */
-@keyframes 
+@keyframes dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}

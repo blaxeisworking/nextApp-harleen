@@ -131,11 +131,11 @@ export const nodeSchema = z.discriminatedUnion('type', [
 ]);
 
 // Node validation functions
-export const validateNode = (node: any) => {
+export const validateNode = (node: unknown) => {
   return nodeSchema.safeParse(node);
 };
 
-export const validateNodeType = (type: string, data: any) => {
+export const validateNodeType = (type: string, data: unknown) => {
   switch (type) {
     case NODE_TYPES.TEXT:
       return textNodeSchema.shape.data.safeParse(data);

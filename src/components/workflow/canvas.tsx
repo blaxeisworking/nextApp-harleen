@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -8,16 +8,13 @@ import {
   MiniMap,
   useReactFlow,
   type Node,
-  type Edge,
   type Connection,
-  type NodeChange,
-  type EdgeChange,
-  useKeyPress,
 } from '@xyflow/react'
 import { useWorkflowStore } from '@/stores/workflow-store'
 import { useUIStore } from '@/stores/ui-store'
 import { cn } from '@/lib/utils/helpers'
 import { validateConnection, wouldCreateCycle } from '@/lib/utils/connections'
+import type { CustomNodeData } from '@/types/node.types'
 import CustomEdge from '@/components/workflow/custom-edge'
 import TextNode from '@/components/nodes/text-node'
 import ImageNode from '@/components/nodes/image-node'
@@ -82,22 +79,61 @@ export default function Canvas() {
         return
       }
 
+      const allowedTypes = ['text', 'image', 'video', 'llm', 'crop', 'extract-frame'] as const
+      type AllowedType = (typeof allowedTypes)[number]
+      if (!(allowedTypes as readonly string[]).includes(type)) {
+        return
+      }
+
+      const nodeType = type as AllowedType
+
       const position = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       })
 
-      const newNode: Node = {
+      const dataForType: CustomNodeData = (() => {
+        switch (nodeType) {
+          case 'text':
+            return { label: 'Text', type: 'text', value: '' }
+          case 'image':
+            return { label: 'Image', type: 'image', value: '' }
+          case 'video':
+            return { label: 'Video', type: 'video', value: '' }
+          case 'llm':
+            return {
+              label: 'Run Any LLM',
+              type: 'llm',
+              value: '',
+              config: {
+                model: 'gemini-1.5-flash',
+                systemPrompt: '',
+                userMessage: '',
+                images: [],
+              },
+            }
+          case 'crop':
+            return {
+              label: 'Crop Image',
+              type: 'crop',
+              value: '',
+              config: { imageUrl: '', x: 0, y: 0, width: 100, height: 100 },
+            }
+          case 'extract-frame':
+            return {
+              label: 'Extract Frame',
+              type: 'extract-frame',
+              value: '',
+              config: { videoUrl: '', timestamp: '' },
+            }
+        }
+      })()
+
+      const newNode: Node<CustomNodeData> = {
         id: `${type}-${Date.now()}`,
-        type,
+        type: nodeType,
         position,
-        data: {
-          label: type,
-          type,
-          value: '',
-          config: {},
-          isExecuting: false,
-        },
+        data: { ...dataForType, isExecuting: false },
       }
 
       addNode(newNode)
@@ -115,18 +151,20 @@ export default function Canvas() {
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        isValidConnection={(connection: Connection) => {
-          const source = nodes.find((n) => n.id === connection.source)
-          const target = nodes.find((n) => n.id === connection.target)
+        isValidConnection={(connection) => {
+          const conn = connection as Connection
+          const source = nodes.find((n) => n.id === conn.source)
+          const target = nodes.find((n) => n.id === conn.target)
 
           if (!source || !target) return false
-          if (!connection.sourceHandle || !connection.targetHandle) return false
+          if (!source.type || !target.type) return false
+          if (!conn.sourceHandle || !conn.targetHandle) return false
 
           const validation = validateConnection(
             source.type,
             target.type,
-            connection.sourceHandle,
-            connection.targetHandle
+            conn.sourceHandle,
+            conn.targetHandle
           )
 
           if (!validation.isValid) return false

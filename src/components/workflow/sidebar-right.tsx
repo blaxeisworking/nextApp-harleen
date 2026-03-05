@@ -1,18 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { Clock, Play, CheckCircle, XCircle, AlertCircle, ChevronRight, Trash2, Download, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Clock, Play, CheckCircle, XCircle, AlertCircle, ChevronRight, Trash2, Download } from 'lucide-react'
 import { useWorkflowStore } from '@/stores/workflow-store'
-import { useUIStore } from '@/stores/ui-store'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDate } from '@/lib/utils/formatting'
 
+interface NodeData {
+  label?: string
+  status?: string
+  output?: string
+  error?: string
+  executionTime?: number
+}
+
 export default function RightSidebar() {
-  const { toggleSidebar } = useUIStore()
-  const { workflow, executionHistory } = useWorkflowStore()
+  const { workflow, executionHistory, loadExecutionHistory, clearExecutionHistory } = useWorkflowStore()
   const [expandedRun, setExpandedRun] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadExecutionHistory().catch(() => {
+      // Ignore errors here (e.g. not signed in, DB not configured).
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -58,28 +71,48 @@ export default function RightSidebar() {
     }
   }
 
+  const handleExport = () => {
+    try {
+      const payload = {
+        workflowId: workflow?.id ?? null,
+        workflowName: workflow?.name ?? null,
+        exportedAt: new Date().toISOString(),
+        history: executionHistory ?? [],
+      }
+      const json = JSON.stringify(payload, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `workflow-history-${workflow?.id || 'local'}.json`
+      a.click()
+
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Export failed', err)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-krea-surface border-l border-krea-border">
       {/* Header */}
       <div className="p-4 border-b border-krea-border">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-krea-text-primary">Workflow History</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toggleSidebar('right')}
-            className="h-8 w-8 hover:bg-krea-accent"
-          >
-            <X className="w-4 h-4" />
-          </Button>
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={handleExport}>
             <Download className="w-3 h-3 mr-1" />
             Export
           </Button>
-          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 text-xs"
+            onClick={clearExecutionHistory}
+          >
             <Trash2 className="w-3 h-3 mr-1" />
             Clear
           </Button>
@@ -136,32 +169,36 @@ export default function RightSidebar() {
                         <div className="text-xs font-semibold text-krea-text-muted uppercase tracking-wider">
                           Node Execution Details
                         </div>
-                        {run.nodes && Object.entries(run.nodes).map(([nodeId, nodeData]: [string, any]) => (
+                        {run.nodes && Object.entries(run.nodes as Record<string, unknown>).map(([nodeId, nodeData]) => {
+                          const data = (nodeData && typeof nodeData === 'object' ? nodeData : {}) as NodeData
+                          return (
                           <div
                             key={nodeId}
                             className="p-2 bg-krea-node rounded border border-krea-node-border"
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm text-krea-text-primary">{nodeData.label || nodeId}</span>
-                              {getStatusIcon(nodeData.status)}
+                              <span className="text-sm text-krea-text-primary">
+                                {data.label ?? nodeId}
+                              </span>
+                              {getStatusIcon(data.status ?? 'pending')}
                             </div>
-                            {nodeData.output && (
+                            {data.output && (
                               <div className="text-xs text-krea-text-muted mt-1">
-                                Output: {String(nodeData.output).slice(0, 100)}...
+                                Output: {data.output.slice(0, 100)}...
                               </div>
                             )}
-                            {nodeData.error && (
+                            {data.error && (
                               <div className="text-xs text-krea-error mt-1">
-                                Error: {nodeData.error}
+                                Error: {data.error}
                               </div>
                             )}
-                            {nodeData.executionTime && (
+                            {data.executionTime && (
                               <div className="text-xs text-krea-text-muted mt-1">
-                                Duration: {formatDate.formatDuration(nodeData.executionTime)}
+                                Duration: {formatDate.formatDuration(data.executionTime)}
                               </div>
                             )}
                           </div>
-                        ))}
+                        )})}
                       </div>
                     </div>
                   )}

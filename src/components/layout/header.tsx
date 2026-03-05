@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Menu, Plus, Save, Play, Settings, Bell, Search, Moon, Sun, User } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Menu, Save, Play, Search, Moon, Sun, Clock, Settings, User } from 'lucide-react'
 import { useUIStore } from '@/stores/ui-store'
 import { useWorkflowStore } from '@/stores/workflow-store'
 import { cn } from '@/lib/utils/helpers'
@@ -14,12 +14,17 @@ export default function Header() {
   const { workflow, saveWorkflow, executeWorkflow, isExecuting } = useWorkflowStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [mounted, setMounted] = useState(false)
-  const [isDark, setIsDark] = useState(false)
+
+  const isDark = useMemo(() => {
+    if (!mounted) return false
+    if (theme === 'dark') return true
+    if (theme === 'light') return false
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  }, [mounted, theme])
 
   // Only run on client after mount
   useEffect(() => {
     setMounted(true)
-    setIsDark(theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches))
   }, [theme])
 
   const handleSave = async () => {
@@ -34,7 +39,6 @@ export default function Header() {
 
   const toggleTheme = () => {
     setTheme(isDark ? 'light' : 'dark')
-    setIsDark(!isDark)
   }
 
   return (
@@ -106,6 +110,19 @@ export default function Header() {
             title="Execute Workflow"
           >
             <Play className="w-4 h-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleSidebar('right')}
+            className={cn(
+              'hover:bg-krea-accent',
+              sidebar.right ? 'text-krea-text-primary' : 'text-krea-text-muted'
+            )}
+            title="Toggle History Sidebar"
+          >
+            <Clock className="w-4 h-4" />
           </Button>
           
           {/* Theme Toggle - Fixed for hydration */}

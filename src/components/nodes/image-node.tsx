@@ -1,8 +1,8 @@
 'use client'
 
 import { memo, useCallback, useRef, useState } from 'react'
-import { Handle, Position, useReactFlow } from '@xyflow/react'
-import { Image as ImageIcon, Upload, X } from 'lucide-react'
+import { Handle, Position } from '@xyflow/react'
+import { Image as ImageIcon, Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/helpers'
 import { useWorkflowStore } from '@/stores/workflow-store'
@@ -25,7 +25,7 @@ interface ImageNodeProps {
 function ImageNode({ id, data, selected }: ImageNodeProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const { setNodes } = useReactFlow()
+  const [isUploading, setIsUploading] = useState(false)
   const updateNode = useWorkflowStore((s) => s.updateNode)
   const removeNode = useWorkflowStore((s) => s.removeNode)
   
@@ -35,11 +35,43 @@ function ImageNode({ id, data, selected }: ImageNodeProps) {
         alert('Please select an image file')
         return
       }
+
+      setIsUploading(true)
       updateNode(id, {
-        value: URL.createObjectURL(file),
+        isExecuting: true,
         fileName: file.name,
         fileSize: file.size,
       })
+
+      try {
+        const form = new FormData()
+        form.append('file', file)
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: form,
+        })
+
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json?.success || !json?.data?.url) {
+          const message = json?.error || 'Failed to upload image'
+          throw new Error(message)
+        }
+
+        // Store the server URL so backend workflows can access it.
+        updateNode(id, {
+          value: json.data.url as string,
+          isExecuting: false,
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        alert(message)
+        updateNode(id, {
+          isExecuting: false,
+        })
+      } finally {
+        setIsUploading(false)
+      }
     },
     [id, updateNode]
   )
@@ -120,15 +152,25 @@ function ImageNode({ id, data, selected }: ImageNodeProps) {
             )}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload className="w-8 h-8 text-krea-text-muted mx-auto mb-2" />
-            <p className="text-sm text-krea-text-primary">Drop image here or click to upload</p>
-            <p className="text-xs text-krea-text-muted mt-1">JPG, PNG, WEBP, GIF (max 10MB)</p>
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 text-krea-text-muted animate-spin" />
+                <p className="text-sm text-krea-text-primary">Uploading…</p>
+              </div>
+            ) : (
+              <>
+                <Upload className="w-8 h-8 text-krea-text-muted mx-auto mb-2" />
+                <p className="text-sm text-krea-text-primary">Drop image here or click to upload</p>
+                <p className="text-xs text-krea-text-muted mt-1">JPG, PNG, WEBP, GIF (max 10MB)</p>
+              </>
+            )}
             
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              disabled={isUploading}
               className="hidden"
             />
           </div>

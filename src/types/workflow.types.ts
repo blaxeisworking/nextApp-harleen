@@ -22,7 +22,7 @@ export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | '
 export interface NodeExecutionResult {
   nodeId: string;
   status: 'success' | 'failed' | 'skipped';
-  output?: any;
+  output?: unknown;
   error?: string;
   executionTime: number;
   startedAt: Date;
@@ -39,7 +39,7 @@ export interface WorkflowExecution {
   status: ExecutionStatus;
   nodes: Record<string, {
     status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
-    output?: any;
+    output?: unknown;
     error?: string;
     executionTime?: number;
     startedAt?: Date;
@@ -61,7 +61,7 @@ export interface ExecutionRequest {
   nodes?: Node<CustomNodeData>[];
   edges?: Edge[];
   nodeIds?: string[]; // For partial execution
-  inputs?: Record<string, any>;
+  inputs?: Record<string, unknown>;
 }
 
 // Execution response
@@ -69,7 +69,7 @@ export interface ExecutionResponse {
   executionId: string;
   status: ExecutionStatus;
   message?: string;
-  results?: Record<string, any>;
+  results?: Record<string, unknown>;
 }
 
 // Workflow template

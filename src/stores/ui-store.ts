@@ -6,7 +6,7 @@ export const SIDEBAR_WIDTH = {
 
 import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
-import { Notification, ModalState, UIState } from '@/types/ui.types';
+import { Notification, ModalState } from '@/types/ui.types';
 import { generateId } from '@/lib/utils/helpers';
 import { NOTIFICATION_DURATION } from '@/lib/utils/constants';
 
@@ -63,7 +63,7 @@ interface UIStore {
   toggleTheme: () => void;
   
   // Keyboard shortcuts
-  registerShortcuts: (shortcuts: any[]) => void;
+  registerShortcuts: (shortcuts: unknown[]) => void;
   unregisterShortcuts: (ids: string[]) => void;
 }
 
@@ -92,10 +92,7 @@ export const useUIStore = create<UIStore>()(
           // Theme and sidebar
           setTheme: (theme) => {
             set({ theme });
-            // Apply theme to document
-            const effectiveTheme = get().getEffectiveTheme();
-            document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
-            document.documentElement.classList.toggle('light', effectiveTheme === 'light');
+            // Document theme is applied by ThemeProvider (SSR-safe).
           },
           
           toggleSidebar: (side) => set((state) => ({
@@ -115,7 +112,7 @@ export const useUIStore = create<UIStore>()(
             },
           })),
           
-          resetSidebar: () => set((state) => ({
+          resetSidebar: () => set(() => ({
             sidebar: {
               left: true,
               right: true,
@@ -128,18 +125,23 @@ export const useUIStore = create<UIStore>()(
           
           // Notifications
           addNotification: (notification) => set((state) => {
+            const duration =
+              notification.duration ??
+              NOTIFICATION_DURATION[notification.type] ??
+              0
+
             const newNotification: Notification = {
               ...notification,
               id: generateId('notification'),
               createdAt: new Date(),
-              duration: notification.duration ?? NOTIFICATION_DURATION[notification.type],
+              duration,
             };
 
             // Auto-remove notification after duration
-            if (newNotification.duration > 0) {
+            if (duration > 0) {
               setTimeout(() => {
                 get().removeNotification(newNotification.id);
-              }, newNotification.duration);
+              }, duration);
             }
 
             return {
@@ -210,29 +212,33 @@ export const useUIStore = create<UIStore>()(
             return state.loading.global || state.loading.actions[action] || false;
           },
           
-          clearActionLoading: (action) => set((state) => {
-            if (action) {
-              const { [action]: _, ...remainingActions } = state.loading.actions;
-              return {
-                loading: {
-                  ...state.loading,
-                  actions: remainingActions,
-                },
-              };
-            } else {
+          clearActionLoading: (action) =>
+            set((state) => {
+              if (action) {
+                const remainingActions = Object.fromEntries(
+                  Object.entries(state.loading.actions).filter(([key]) => key !== action)
+                )
+                return {
+                  loading: {
+                    ...state.loading,
+                    actions: remainingActions,
+                  },
+                }
+              }
+
               return {
                 loading: {
                   ...state.loading,
                   actions: {},
                 },
-              };
-            }
-          }),
+              }
+            }),
           
           // Theme helpers
           getEffectiveTheme: () => {
             const { theme } = get();
             if (theme === 'system') {
+              if (typeof window === 'undefined') return 'light'
               return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
             return theme;
@@ -242,15 +248,7 @@ export const useUIStore = create<UIStore>()(
             const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
             const currentIndex = themes.indexOf(state.theme);
             const nextTheme = themes[(currentIndex + 1) % themes.length];
-            
-            // Apply theme immediately
-            const effectiveTheme = nextTheme === 'system' 
-              ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-              : nextTheme;
-            
-            document.documentElement.classList.toggle('dark', effectiveTheme === 'dark');
-            document.documentElement.classList.toggle('light', effectiveTheme === 'light');
-            
+
             return { theme: nextTheme };
           }),
           

@@ -117,7 +117,7 @@ export class DatabaseError extends Error {
   constructor(
     message: string,
     public code?: string,
-    public meta?: any,
+    public meta?: unknown,
     public cause?: Error
   ) {
     super(message);
@@ -125,7 +125,7 @@ export class DatabaseError extends Error {
   }
 }
 
-export const handleDatabaseError = (error: any): DatabaseError => {
+export const handleDatabaseError = (error: unknown): DatabaseError => {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
       case 'P2002':
@@ -177,10 +177,17 @@ export const handleDatabaseError = (error: any): DatabaseError => {
     );
   }
   
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : 'Unknown database error'
+
   return new DatabaseError(
-    error.message || 'Unknown database error',
+    message,
     'UNKNOWN',
     null,
-    error
+    error instanceof Error ? error : undefined
   );
 };

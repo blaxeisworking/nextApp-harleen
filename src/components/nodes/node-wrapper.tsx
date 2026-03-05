@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useCallback } from 'react'
-import { Handle, Position, useReactFlow } from '@xyflow/react'
+import { Handle, Position } from '@xyflow/react'
 import { X, Play, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/helpers'
@@ -19,15 +19,15 @@ interface NodeWrapperProps {
 
 function NodeWrapper({ 
   id, 
-  type, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  type: _type, 
   label, 
   color = '#6366f1',
   children,
   isExecuting = false,
   onExecute,
 }: NodeWrapperProps) {
-  const { setNodes, removeNode } = useReactFlow()
-  const { selectedNodes } = useWorkflowStore()
+  const { selectedNodes, removeNode } = useWorkflowStore()
   const isSelected = selectedNodes.includes(id)
 
   const handleDelete = useCallback(() => {

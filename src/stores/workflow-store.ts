@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import {
@@ -82,7 +83,7 @@ interface WorkflowState {
   stopExecution: () => void
 
   loadExecutionHistory: () => Promise<void>
-  clearExecutionHistory: () => void
+  clearExecutionHistory: () => Promise<void>
 }
 
 export const useWorkflowStore = create<WorkflowState>()(
@@ -99,6 +100,8 @@ export const useWorkflowStore = create<WorkflowState>()(
         currentExecution: null,
 
         zoom: 1,
+        history: [],
+        historyIndex: -1,
         center: { x: 0, y: 0 },
         snapToGrid: true,
         gridSize: 20,
@@ -125,21 +128,24 @@ export const useWorkflowStore = create<WorkflowState>()(
         updateNode: (nodeId, data) =>
           set((s) => ({
             nodes: s.nodes.map((n) =>
-              n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
-            ),
+              n.id === nodeId
+                ? { ...n, data: { ...(n.data as any), ...(data as any) } as any }
+                : n
+            ) as any,
           })),
 
         onNodesChange: (changes) =>
           set((s) => ({
-            nodes: applyNodeChanges(changes, s.nodes),
+            nodes: applyNodeChanges(changes, s.nodes as any) as any,
           })),
 
         onEdgesChange: (changes) =>
           set((s) => ({
-            edges: applyEdgeChanges(changes, s.edges),
+            edges: applyEdgeChanges(changes, s.edges as any) as any,
             selectedEdges: changes
-              .filter((c) => c.type === 'select' && c.selected)
-              .map((c) => c.id),
+              .filter((c) => c.type === 'select' && (c as any).selected)
+              .map((c) => (c as any).id as string | undefined)
+              .filter((id): id is string => Boolean(id)),
           })),
 
         onConnect: (connection) =>
@@ -148,6 +154,7 @@ export const useWorkflowStore = create<WorkflowState>()(
             const target = s.nodes.find((n) => n.id === connection.target)
 
             if (!source || !target) return s
+            if (!source.type || !target.type) return s
             if (!connection.sourceHandle || !connection.targetHandle) return s
 
             const validation = validateConnection(
@@ -402,23 +409,132 @@ export const useWorkflowStore = create<WorkflowState>()(
           const { workflow } = get()
           if (!workflow) return
 
-          // Ensure persisted first (gives us a DB workflow id)
-          await get().saveWorkflow()
+          // Best-effort persist first (gives us a DB workflow id), but allow local/dev
+          // execution even when DB isn't configured.
+          try {
+            await get().saveWorkflow()
+          } catch (err) {
+            console.warn('saveWorkflow failed; executing without persistence', err)
+          }
+
           const wf = get().workflow
           if (!wf) return
 
-          const res = await fetch(`/api/workflows/${wf.id}/execute`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          })
+          let execError: Error | null = null
+          let execJson: any = null
 
-          if (!res.ok) {
-            const text = await res.text().catch(() => '')
-            throw new Error(text || 'Failed to execute workflow')
+          set({ isExecuting: true })
+
+          try {
+            const res = await fetch(`/api/workflows/${wf.id}/execute`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workflow: { id: wf.id, name: wf.name, description: wf.description },
+                nodes: get().nodes,
+                edges: get().edges,
+              }),
+            })
+
+            if (!res.ok) {
+              const text = await res.text().catch(() => '')
+              throw new Error(text || 'Failed to execute workflow')
+            }
+
+            execJson = await res.json().catch(() => null)
+
+            // Apply outputs to nodes so results appear on the canvas.
+            const results = execJson?.data?.results
+            if (results && typeof results === 'object') {
+              const nodesById = new Map(get().nodes.map((n) => [n.id, n]))
+              for (const [nodeId, result] of Object.entries(results)) {
+                const node = nodesById.get(nodeId)
+                const nodeType = node?.type
+                if (!node || !nodeType) continue
+
+                if (nodeType === 'llm') {
+                  const text =
+                    typeof result === 'string'
+                      ? result
+                      : (result as any)?.text ??
+                        (result as any)?.output?.text ??
+                        (result as any)?.content ??
+                        ''
+
+                  if (text) {
+                    get().updateNode(nodeId, {
+                      outputs: { text: String(text) },
+                      isExecuting: false,
+                      error: undefined,
+                    } as any)
+                  }
+                }
+
+                if (nodeType === 'crop' || nodeType === 'extract-frame') {
+                  const imageUrl =
+                    (result as any)?.imageUrl ??
+                    (result as any)?.url ??
+                    (result as any)?.output?.imageUrl ??
+                    (result as any)?.output?.url
+
+                  if (imageUrl) {
+                    get().updateNode(nodeId, {
+                      outputs: { imageUrl: String(imageUrl) },
+                      isExecuting: false,
+                      error: undefined,
+                    } as any)
+                  }
+                }
+
+                // Clear executing flag for any node that produced a result.
+                if ((node.data as any)?.isExecuting) {
+                  get().updateNode(nodeId, { isExecuting: false } as any)
+                }
+              }
+            }
+
+            // Apply per-node errors so failures are visible on the canvas.
+            const errors = execJson?.data?.errors
+            if (errors && typeof errors === 'object') {
+              for (const [nodeId, message] of Object.entries(errors)) {
+                if (!message) continue
+                get().updateNode(nodeId, {
+                  isExecuting: false,
+                  error: String(message),
+                } as any)
+              }
+            }
+
+            if (execJson && execJson.success === false) {
+              throw new Error(execJson.error || 'Execution failed')
+            }
+
+            if (execJson?.data?.status === 'failed') {
+              const firstError =
+                errors && typeof errors === 'object'
+                  ? String(Object.values(errors)[0] ?? 'Execution failed')
+                  : 'Execution failed'
+              throw new Error(firstError)
+            }
+          } catch (err) {
+            execError = err instanceof Error ? err : new Error(String(err))
+          } finally {
+            // Refresh history so the right sidebar updates even if the run failed.
+            // (The API creates an ExecutionHistory row up-front and then marks it failed.)
+            await get().loadExecutionHistory().catch(() => {
+              // Ignore history refresh errors (e.g. not signed in, DB not configured).
+            })
+
+            set({ isExecuting: false })
           }
 
-          // Refresh history so right sidebar updates immediately
-          await get().loadExecutionHistory()
+          if (execError) {
+            // Avoid silent failures (header doesn't currently surface errors).
+            if (typeof window !== 'undefined') {
+              alert(execError.message)
+            }
+            throw execError
+          }
         },
         executeNode: async () => {},
         executeSelected: async () => {},
@@ -427,8 +543,8 @@ export const useWorkflowStore = create<WorkflowState>()(
         loadExecutionHistory: async () => {
           const res = await fetch('/api/history', { method: 'GET' })
           if (!res.ok) {
-            const text = await res.text().catch(() => '')
-            throw new Error(text || 'Failed to load history')
+            // Don't wipe local entries if the DB request fails
+            return
           }
 
           const json = await res.json().catch(() => null)
@@ -452,9 +568,22 @@ export const useWorkflowStore = create<WorkflowState>()(
             nodeIds: row.nodeIds ?? undefined,
           }))
 
-          set({ executionHistory: mapped })
+          // Merge DB results with any local-only entries (e.g. from single-node runs)
+          // so local entries don't disappear when DB refresh fires.
+          set((s) => {
+            const dbIds = new Set(mapped.map((e) => e.id))
+            const localOnly = s.executionHistory.filter((e) => !dbIds.has(e.id))
+            return { executionHistory: [...localOnly, ...mapped] }
+          })
         },
-        clearExecutionHistory: () => set({ executionHistory: [] }),
+        clearExecutionHistory: async () => {
+          try {
+            await fetch('/api/history', { method: 'DELETE' })
+          } catch {
+            // DB may not be configured; still clear locally
+          }
+          set({ executionHistory: [] })
+        },
       }),
       {
         name: 'workflow-store',

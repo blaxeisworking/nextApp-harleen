@@ -1,9 +1,10 @@
 import { CONNECTION_RULES } from './constants'
+import type { Edge, Node } from '@xyflow/react'
 
 interface ConnectionValidation {
   isValid: boolean
   error?: string
-  rule?: typeof CONNECTION_RULES[0]
+  rule?: (typeof CONNECTION_RULES)[number]
 }
 
 /**
@@ -20,7 +21,7 @@ export function validateConnection(
     (r) =>
       r.from === sourceNodeType &&
       r.to === targetNodeType &&
-      r.handles.includes(targetHandle)
+      (r.handles as readonly string[]).includes(targetHandle)
   )
 
   if (!rule) {
@@ -42,8 +43,8 @@ export function validateConnection(
 export function wouldCreateCycle(
   sourceNodeId: string,
   targetNodeId: string,
-  nodes: any[],
-  edges: any[]
+  nodes: Array<Pick<Node, 'id'>>,
+  edges: Array<Pick<Edge, 'source' | 'target'>>
 ): boolean {
   // Build adjacency list
   const adjacency: Record<string, string[]> = {}
@@ -93,8 +94,7 @@ export function wouldCreateCycle(
  * Get compatible target handles for a source handle
  */
 export function getCompatibleHandles(
-  sourceNodeType: string,
-  sourceHandle: string
+  sourceNodeType: string
 ): Array<{ nodeType: string; handle: string }> {
   const compatible: Array<{ nodeType: string; handle: string }> = []
 

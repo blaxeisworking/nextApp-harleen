@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Workflow, History, Settings, User } from 'lucide-react'
+import { Workflow, History, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils/helpers'
 
 const navItems = [

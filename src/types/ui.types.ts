@@ -40,8 +40,8 @@ export interface ModalState {
   type: 'dialog' | 'sheet' | 'drawer' | 'custom';
   title?: string;
   description?: string;
-  content: React.ComponentType<any>;
-  props?: any;
+  content: React.ComponentType<Record<string, unknown>>;
+  props?: Record<string, unknown>;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   position?: 'center' | 'top' | 'bottom' | 'left' | 'right';
   backdrop?: boolean;
@@ -57,7 +57,7 @@ export interface NodePaletteItem {
   icon: string;
   color: string;
   nodeType: string;
-  defaultConfig?: any;
+  defaultConfig?: unknown;
 }
 
 // Execution controls
@@ -73,7 +73,7 @@ export interface ExecutionControls {
 // Drag and drop
 export interface DragItem {
   type: string;
-  data: any;
+  data: unknown;
   offset: {
     x: number;
     y: number;

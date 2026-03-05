@@ -10,7 +10,7 @@ import path from 'path'
  * Body: multipart/form-data with a file field
  */
 export async function POST(req: Request) {
-  const { userId } = auth()
+  const { userId } = await auth()
   if (!userId) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
@@ -50,26 +50,40 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes)
     await writeFile(filepath, buffer)
 
-    // Store metadata in database
-    const fileRecord = await prisma.fileUpload.create({
-      data: {
-        userId,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        url: `/uploads/${filename}`,
-      },
-    })
+    // Store metadata in database (best-effort; local dev may not have DATABASE_URL set)
+    let fileRecord: { id: string; fileName: string; mimeType: string; fileSize: number; url: string } | null = null
+    try {
+      fileRecord = await prisma.fileUpload.create({
+        data: {
+          userId,
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          url: `/uploads/${filename}`,
+        },
+        select: {
+          id: true,
+          fileName: true,
+          mimeType: true,
+          fileSize: true,
+          url: true,
+        },
+      })
+    } catch (e) {
+      // Don't fail the upload if the DB isn't configured.
+      // The file is already written to disk at this point.
+      console.warn('Skipping FileUpload DB write:', e)
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        id: fileRecord.id,
-        filename: fileRecord.fileName,
-        originalName: fileRecord.fileName,
-        mimeType: fileRecord.mimeType,
-        size: fileRecord.fileSize,
-        url: fileRecord.url,
+        id: fileRecord?.id ?? null,
+        filename: fileRecord?.fileName ?? file.name,
+        originalName: fileRecord?.fileName ?? file.name,
+        mimeType: fileRecord?.mimeType ?? file.type,
+        size: fileRecord?.fileSize ?? file.size,
+        url: fileRecord?.url ?? `/uploads/${filename}`,
       },
     })
   } catch (err) {

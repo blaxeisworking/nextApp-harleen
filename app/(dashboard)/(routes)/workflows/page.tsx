@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { redirect } from 'next/navigation'
 import {
   ReactFlow,
   Background,
@@ -11,9 +10,9 @@ import {
   Connection,
   Edge,
   addEdge,
+  ConnectionLineType,
 } from '@xyflow/react'
 import { useWorkflowStore } from '@/stores/workflow-store'
-import { useUIStore } from '@/stores/ui-store'
 import { validateConnection, wouldCreateCycle, getConnectionColor } from '@/lib/utils/connections'
 import TextNode from '@/components/nodes/text-node'
 import ImageNode from '@/components/nodes/image-node'
@@ -24,6 +23,7 @@ import ExtractFrameNode from '@/components/nodes/extract-frame-node'
 import CustomEdge from '@/components/workflow/custom-edge'
 import '@xyflow/react/dist/style.css'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
+import { generateId } from '@/lib/utils/helpers'
 
 const nodeTypes = {
   text: TextNode,
@@ -39,8 +39,10 @@ const edgeTypes = {
 }
 
 export default function WorkflowsPage() {
-  const { isSignedIn, isLoaded } = useUser()
+  const { isSignedIn, isLoaded, user } = useUser()
   const {
+    workflow,
+    setWorkflow,
     nodes,
     edges,
     onNodesChange,
@@ -49,6 +51,26 @@ export default function WorkflowsPage() {
   } = useWorkflowStore()
 
   useKeyboardShortcuts()
+
+  // Ensure there's always a workflow object backing the canvas.
+  // This enables Save/Execute and prevents node-level runs from missing an id.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+    if (workflow) return
+
+    setWorkflow({
+      id: generateId('workflow'),
+      name: 'New Workflow',
+      description: '',
+      nodes: [],
+      edges: [],
+      userId: user?.id ?? '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tags: [],
+      isPublic: false,
+    })
+  }, [isLoaded, isSignedIn, workflow, setWorkflow, user?.id])
 
   // Remove use of safeNodes/safeEdges in the dependency array and callback.
   // Instead, always get the latest nodes/edges from the store inside the callback.
@@ -124,8 +146,8 @@ export default function WorkflowsPage() {
   return (
     <div className="h-full w-full bg-krea-background">
       <ReactFlow
-        nodes={Array.isArray(nodes) ? (nodes as any) : []}
-        edges={Array.isArray(edges) ? (edges as any) : []}
+        nodes={Array.isArray(nodes) ? nodes : []}
+        edges={Array.isArray(edges) ? edges : []}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={handleConnect}
@@ -139,7 +161,7 @@ export default function WorkflowsPage() {
         fitView
         snapToGrid
         snapGrid={[20, 20]}
-        connectionLineType={'smooth' as any}
+        connectionLineType={ConnectionLineType.Bezier}
         connectionRadius={10}
       >
         <Background color="#2a2a2a" gap={20} size={1} />

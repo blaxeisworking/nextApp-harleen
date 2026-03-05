@@ -107,35 +107,43 @@ export const historyQuerySchema = z.object({
 });
 
 // Validation functions
-export const validateWorkflow = (workflow: any) => {
+export const validateWorkflow = (workflow: unknown) => {
   return workflowSchema.safeParse(workflow);
 };
 
-export const validateCreateWorkflow = (data: any) => {
+export const validateCreateWorkflow = (data: unknown) => {
   return createWorkflowSchema.safeParse(data);
 };
 
-export const validateUpdateWorkflow = (data: any) => {
+export const validateUpdateWorkflow = (data: unknown) => {
   return updateWorkflowSchema.safeParse(data);
 };
 
-export const validateExecutionRequest = (data: any) => {
+export const validateExecutionRequest = (data: unknown) => {
   return executionRequestSchema.safeParse(data);
 };
 
 // Check for circular dependencies
-export const validateDAG = (nodes: any[], edges: any[]) => {
+export const validateDAG = (nodes: unknown[], edges: unknown[]) => {
   const adjacency: Record<string, string[]> = {};
   const visited = new Set<string>();
   const recursionStack = new Set<string>();
 
   // Build adjacency list
-  nodes.forEach(node => {
-    adjacency[node.id] = [];
+  nodes.forEach((node) => {
+    if (!node || typeof node !== 'object') return
+    const id = (node as { id?: unknown }).id
+    if (typeof id !== 'string') return
+    adjacency[id] = [];
   });
 
-  edges.forEach(edge => {
-    adjacency[edge.source].push(edge.target);
+  edges.forEach((edge) => {
+    if (!edge || typeof edge !== 'object') return
+    const source = (edge as { source?: unknown }).source
+    const target = (edge as { target?: unknown }).target
+    if (typeof source !== 'string' || typeof target !== 'string') return
+    if (!adjacency[source]) adjacency[source] = []
+    adjacency[source].push(target)
   });
 
   const hasCycle = (nodeId: string): boolean => {
@@ -154,28 +162,41 @@ export const validateDAG = (nodes: any[], edges: any[]) => {
   };
 
   for (const node of nodes) {
-    if (hasCycle(node.id)) return false;
+    if (!node || typeof node !== 'object') continue
+    const id = (node as { id?: unknown }).id
+    if (typeof id !== 'string') continue
+    if (hasCycle(id)) return false;
   }
 
   return true;
 };
 
 // Validate node connections
-export const validateConnections = (nodes: any[], edges: any[]) => {
-  const nodeTypes = nodes.reduce((acc, node) => {
-    acc[node.id] = node.type;
-    return acc;
+export const validateConnections = (nodes: unknown[], edges: unknown[]) => {
+  const nodeTypes = nodes.reduce((acc: Record<string, string>, node) => {
+    if (!node || typeof node !== 'object') return acc
+    const id = (node as { id?: unknown }).id
+    const type = (node as { type?: unknown }).type
+    if (typeof id === 'string' && typeof type === 'string') {
+      acc[id] = type
+    }
+    return acc
   }, {} as Record<string, string>);
 
   const invalidConnections: string[] = [];
 
-  edges.forEach(edge => {
-    const sourceType = nodeTypes[edge.source];
-    const targetType = nodeTypes[edge.target];
+  edges.forEach((edge) => {
+    if (!edge || typeof edge !== 'object') return
+    const source = (edge as { source?: unknown }).source
+    const target = (edge as { target?: unknown }).target
+    if (typeof source !== 'string' || typeof target !== 'string') return
+
+    const sourceType = nodeTypes[source];
+    const targetType = nodeTypes[target];
 
     // Add connection validation logic here based on your rules
     if (!sourceType || !targetType) {
-      invalidConnections.push(`Invalid connection: ${edge.source} -> ${edge.target}`);
+      invalidConnections.push(`Invalid connection: ${source} -> ${target}`);
     }
   });
 

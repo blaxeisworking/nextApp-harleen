@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useCallback, useEffect, useState } from 'react'
-import { Handle, Position, useReactFlow } from '@xyflow/react'
+import { Handle, Position } from '@xyflow/react'
 import { Type, X, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -22,7 +22,7 @@ interface TextNodeProps {
 }
 
 function TextNode({ id, data, selected }: TextNodeProps) {
-  const { getNode, edges } = useReactFlow()
+  const edges = useWorkflowStore((s) => s.edges)
   const [connectedInputs, setConnectedInputs] = useState<string[]>([])
   const updateNode = useWorkflowStore((s) => s.updateNode)
   const removeNode = useWorkflowStore((s) => s.removeNode)
@@ -99,8 +99,9 @@ function TextNode({ id, data, selected }: TextNodeProps) {
         type="target"
         position={Position.Left}
         id="text-target"
-        className="!bg-blue-500 !border-2 !border-white !w-3 !h-3"
-        style={{ left: -8, top: '50%' }}
+        isConnectable={true}
+        className="!bg-blue-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ left: -14, top: '50%', zIndex: 50, pointerEvents: 'auto' }}
       />
 
       {/* Output Handle */}
@@ -108,8 +109,9 @@ function TextNode({ id, data, selected }: TextNodeProps) {
         type="source"
         position={Position.Right}
         id="text-output"
-        className="!bg-blue-500 !border-2 !border-white !w-3 !h-3"
-        style={{ right: -8, top: '50%' }}
+        isConnectable={true}
+        className="!bg-blue-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ right: -14, top: '50%', zIndex: 50, pointerEvents: 'auto' }}
       />
     </div>
   )

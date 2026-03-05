@@ -1,5 +1,5 @@
 // API response wrapper
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -11,7 +11,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   timestamp: Date;
 }
 
@@ -39,7 +39,7 @@ export interface PaginatedResponse<T> {
 export interface FileUploadRequest {
   file: File;
   type: 'image' | 'video';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface FileUploadResponse {
@@ -47,33 +47,33 @@ export interface FileUploadResponse {
   fileName: string;
   fileSize: number;
   mimeType: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Workflow API
 export interface CreateWorkflowRequest {
   name: string;
   description?: string;
-  nodes: any[];
-  edges: any[];
+  nodes: unknown[];
+  edges: unknown[];
   tags?: string[];
 }
 
 export interface UpdateWorkflowRequest {
   name?: string;
   description?: string;
-  nodes?: any[];
-  edges?: any[];
+  nodes?: unknown[];
+  edges?: unknown[];
   tags?: string[];
 }
 
 // Execution API
 export interface ExecuteWorkflowRequest {
   workflowId?: string;
-  nodes?: any[];
-  edges?: any[];
+  nodes?: unknown[];
+  edges?: unknown[];
   nodeIds?: string[];
-  inputs?: Record<string, any>;
+  inputs?: Record<string, unknown>;
 }
 
 export interface ExecuteWorkflowResponse {
@@ -93,12 +93,12 @@ export interface ExecutionHistoryParams extends PaginationParams {
 // Export/Import
 export interface WorkflowExport {
   version: string;
-  workflow: any;
+  workflow: unknown;
   exportedAt: Date;
 }
 
 export interface WorkflowImport {
-  workflow: any;
+  workflow: unknown;
   options?: {
     overwrite?: boolean;
     importHistory?: boolean;

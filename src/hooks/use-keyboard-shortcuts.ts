@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import { useWorkflowStore } from '@/stores/workflow-store'
 
 export function useKeyboardShortcuts() {

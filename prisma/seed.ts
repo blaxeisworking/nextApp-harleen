@@ -56,4 +56,23 @@ const seedDatabase = async () => {
           snapToGrid: true,
           gridSize: 20,
           showGrid: true,
-          showMinimap:
+          showMinimap: true,
+        },
+      },
+    })
+
+    console.log('User preferences created successfully')
+  } catch (error) {
+    console.error('Error seeding database:', error)
+    process.exitCode = 1
+  }
+}
+
+seedDatabase()
+  .catch((error) => {
+    console.error('Seed failed:', error)
+    process.exitCode = 1
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

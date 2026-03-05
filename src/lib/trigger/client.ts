@@ -31,7 +31,7 @@ export class TriggerClient {
   /**
    * Trigger a task and return the task metadata.
    */
-  async triggerTask(taskType: 'llm' | 'crop-image' | 'extract-frame', payload: any): Promise<TriggerTask> {
+  async triggerTask(taskType: 'llm' | 'crop-image' | 'extract-frame', payload: unknown): Promise<TriggerTask> {
     const task = await this.request('/v1/tasks', {
       method: 'POST',
       body: JSON.stringify({

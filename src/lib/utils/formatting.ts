@@ -281,7 +281,7 @@ export const formatArray = {
   },
 
   // Group by key
-  groupBy: <T, K extends keyof any>(arr: T[], key: (item: T) => K): Record<K, T[]> => {
+  groupBy: <T, K extends PropertyKey>(arr: T[], key: (item: T) => K): Record<K, T[]> => {
     return arr.reduce((groups, item) => {
       const group = key(item);
       groups[group] = groups[group] || [];

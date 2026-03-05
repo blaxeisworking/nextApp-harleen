@@ -1,13 +1,15 @@
 'use client'
 
-import { memo, useCallback, useState, useEffect } from 'react'
-import { Handle, Position, useReactFlow } from '@xyflow/react'
+import { memo, useCallback, useState } from 'react'
+import { Handle, Position } from '@xyflow/react'
 import { Bot, Sparkles, ImageIcon, Trash2, Loader2, Play, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils/helpers'
 import { useWorkflowStore } from '@/stores/workflow-store'
+import { generateId } from '@/lib/utils/helpers'
+import type { WorkflowExecution } from '@/types/workflow.types'
 
 interface LLMNodeData {
   label: string
@@ -24,6 +26,7 @@ interface LLMNodeData {
     text?: string
   }
   isExecuting?: boolean
+  error?: string
 }
 
 interface LLMNodeProps {
@@ -33,135 +36,237 @@ interface LLMNodeProps {
 }
 
 function LLMNode({ id, data, selected }: LLMNodeProps) {
-  const { setNodes, getNode } = useReactFlow()
   const [isExecuting, setIsExecuting] = useState(false)
-  const updateNode = useWorkflowStore((s) => s.updateNode)
-  const removeNode = useWorkflowStore((s) => s.removeNode)
+  const {
+    workflow,
+    edges,
+    saveWorkflow,
+    loadExecutionHistory,
+    updateNode,
+    removeNode,
+    startExecution,
+    updateExecution,
+    endExecution,
+  } = useWorkflowStore()
 
   // Sync output with node data
   const output = data.outputs?.text
 
+  const hasUserMessageInput =
+    (edges || []).some((e) => e.target === id && e.targetHandle === 'user-message')
+
   const handleModelChange = useCallback(
     (model: string) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                config: {
-                  ...n.data.config,
-                  model,
-                },
-              },
-            }
-          }
-          return n
-        })
-      )
+      updateNode(id, {
+        config: {
+          ...(data.config ?? {}),
+          model,
+        },
+      })
     },
-    [id, setNodes]
+    [id, updateNode, data.config]
   )
 
   const handleSystemPromptChange = useCallback(
     (value: string) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                config: {
-                  ...n.data.config,
-                  systemPrompt: value,
-                },
-              },
-            }
-          }
-          return n
-        })
-      )
+      updateNode(id, {
+        config: {
+          ...(data.config ?? {}),
+          systemPrompt: value,
+        },
+      })
     },
-    [id, setNodes]
+    [id, updateNode, data.config]
   )
 
   const handleUserMessageChange = useCallback(
     (value: string) => {
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                config: {
-                  ...n.data.config,
-                  userMessage: value,
-                },
-              },
-            }
-          }
-          return n
-        })
-      )
+      updateNode(id, {
+        config: {
+          ...(data.config ?? {}),
+          userMessage: value,
+        },
+      })
     },
-    [id, setNodes]
+    [id, updateNode, data.config]
   )
 
   const handleExecute = useCallback(async () => {
     setIsExecuting(true)
-    
-    // Mock execution - will integrate with Google Gemini API later
-    setTimeout(() => {
-      const mockResponse = `Generated response for: ${data.config.userMessage || 'No message'}`
-      
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return {
-              ...n,
-              data: {
-                ...n.data,
-                outputs: {
-                  text: mockResponse,
-                },
-                isExecuting: false,
-              },
-            }
-          }
-          return n
-        })
-      )
-      
-      setIsExecuting(false)
-    }, 2000)
-  }, [id, setNodes, data.config.userMessage])
 
-  const handleClearOutput = useCallback(() => {
-    setNodes((nds) =>
-      nds.map((n) => {
-        if (n.id === id) {
-          return {
-            ...n,
-            data: {
-              ...n.data,
-              outputs: undefined,
-            },
+    const startedAt = new Date()
+    const executionId = generateId('exec')
+    const workflowId = workflow?.id ?? ''
+    const workflowName = workflow?.name
+    const workflowDescription = workflow?.description
+
+    const runningExecution: WorkflowExecution = {
+      id: executionId,
+      workflowId,
+      userId: workflow?.userId ?? '',
+      name: workflowName,
+      description: workflowDescription,
+      status: 'running',
+      nodes: {
+        [id]: {
+          status: 'running',
+          startedAt,
+        },
+      },
+      createdAt: startedAt,
+      startedAt,
+      trigger: 'manual',
+      scope: 'single',
+      nodeIds: [id],
+    }
+
+    startExecution(runningExecution)
+    updateNode(id, { isExecuting: true })
+
+    try {
+      // Best-effort persist first, so we have a stable workflow id.
+      try {
+        await saveWorkflow()
+      } catch (err) {
+        console.warn('saveWorkflow failed; executing LLM node without persistence', err)
+      }
+
+      const wf = useWorkflowStore.getState().workflow
+      // The canvas can be used before a workflow is saved/loaded.
+      // Use a stable fallback id so the execute API can still run in DB-less mode.
+      const workflowIdForRun = wf?.id || workflowId || 'local-workflow'
+
+      const state = useWorkflowStore.getState()
+      const nodeForRun = state.nodes.find((n) => n.id === id)
+      if (!nodeForRun) throw new Error('Node not found')
+
+      // Include upstream nodes/edges so connected Text/Image nodes feed into this LLM node.
+      const upstreamNodeIds = new Set<string>([id])
+
+      const stack: string[] = [id]
+      while (stack.length) {
+        const current = stack.pop()!
+        for (const edge of state.edges || []) {
+          if (edge.target !== current) continue
+          if (!upstreamNodeIds.has(edge.source)) {
+            upstreamNodeIds.add(edge.source)
+            stack.push(edge.source)
           }
         }
-        return n
-      })
-    )
-  }, [id, setNodes])
+      }
 
-  const handleChange = useCallback(
-    (value: string) => {
-      updateNode(id, { value })
-    },
-    [id, updateNode]
-  )
+      const nodesForRun = state.nodes.filter((n) => upstreamNodeIds.has(n.id))
+      const edgesForRun = (state.edges || []).filter(
+        (e) => upstreamNodeIds.has(e.source) && upstreamNodeIds.has(e.target)
+      )
+
+      const res = await fetch(`/api/workflows/${workflowIdForRun}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflow: { id: workflowIdForRun, name: wf?.name, description: wf?.description },
+          nodes: nodesForRun,
+          edges: edgesForRun,
+        }),
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        throw new Error(text || 'Failed to execute LLM node')
+      }
+
+      const json = await res.json().catch(() => null)
+
+      if (json?.success === false) {
+        const details = json?.details ? `: ${String(json.details)}` : ''
+        throw new Error(`${json?.error || 'Execution failed'}${details}`)
+      }
+
+      const nodeError = json?.data?.errors?.[id]
+      if (nodeError) {
+        throw new Error(String(nodeError))
+      }
+
+      const result = json?.data?.results?.[id]
+      const text =
+        typeof result === 'string'
+          ? result
+          : result?.text ?? result?.output?.text ?? result?.content ?? ''
+
+      if (!text) {
+        throw new Error('No text returned from LLM')
+      }
+
+      const completedAt = new Date()
+      const executionTime = completedAt.getTime() - startedAt.getTime()
+
+      updateExecution({
+        ...runningExecution,
+        status: 'completed',
+        completedAt,
+        executionTime,
+        nodes: {
+          [id]: {
+            status: 'completed',
+            output: text,
+            executionTime,
+            startedAt,
+            completedAt,
+          },
+        },
+      })
+      endExecution()
+
+      updateNode(id, {
+        outputs: { text: String(text) },
+        isExecuting: false,
+        error: undefined,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      const completedAt = new Date()
+      const executionTime = completedAt.getTime() - startedAt.getTime()
+
+      updateExecution({
+        ...runningExecution,
+        status: 'failed',
+        completedAt,
+        executionTime,
+        nodes: {
+          [id]: {
+            status: 'failed',
+            error: message,
+            executionTime,
+            startedAt,
+            completedAt,
+          },
+        },
+      })
+      endExecution()
+
+      updateNode(id, { isExecuting: false, error: message })
+      if (typeof window !== 'undefined') alert(message)
+    } finally {
+      // Best-effort refresh history for the right sidebar.
+      await loadExecutionHistory().catch(() => {})
+      setIsExecuting(false)
+    }
+  }, [
+    id,
+    workflow?.id,
+    workflow?.name,
+    workflow?.description,
+    saveWorkflow,
+    loadExecutionHistory,
+    startExecution,
+    updateExecution,
+    endExecution,
+    updateNode,
+  ])
+
+  const handleClearOutput = useCallback(() => {
+    updateNode(id, { outputs: undefined })
+  }, [id, updateNode])
 
   return (
     <div
@@ -183,7 +288,7 @@ function LLMNode({ id, data, selected }: LLMNodeProps) {
             variant="ghost"
             size="icon"
             onClick={handleExecute}
-            disabled={isExecuting || !data.config.userMessage}
+            disabled={isExecuting || (!data.config.userMessage && !hasUserMessageInput)}
             className="h-6 w-6 hover:bg-krea-accent"
           >
             {isExecuting ? (
@@ -297,24 +402,27 @@ function LLMNode({ id, data, selected }: LLMNodeProps) {
         type="target"
         position={Position.Left}
         id="system-prompt"
-        className="!bg-orange-500 !border-2 !border-white !w-3 !h-3"
-        style={{ left: -8, top: '25%' }}
+        isConnectable={true}
+        className="!bg-orange-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ left: -14, top: '25%', zIndex: 50, pointerEvents: 'auto' }}
       />
       
       <Handle
         type="target"
         position={Position.Left}
         id="user-message"
-        className="!bg-orange-500 !border-2 !border-white !w-3 !h-3"
-        style={{ left: -8, top: '50%' }}
+        isConnectable={true}
+        className="!bg-orange-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ left: -14, top: '50%', zIndex: 50, pointerEvents: 'auto' }}
       />
       
       <Handle
         type="target"
         position={Position.Left}
         id="images"
-        className="!bg-orange-500 !border-2 !border-white !w-3 !h-3"
-        style={{ left: -8, top: '75%' }}
+        isConnectable={true}
+        className="!bg-orange-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ left: -14, top: '75%', zIndex: 50, pointerEvents: 'auto' }}
       />
 
       {/* Output Handle */}
@@ -322,8 +430,9 @@ function LLMNode({ id, data, selected }: LLMNodeProps) {
         type="source"
         position={Position.Right}
         id="llm-output"
-        className="!bg-orange-500 !border-2 !border-white !w-3 !h-3"
-        style={{ right: -8, top: '50%' }}
+        isConnectable={true}
+        className="!bg-orange-500 !border-2 !border-white !w-4 !h-4 !pointer-events-auto"
+        style={{ right: -14, top: '50%', zIndex: 50, pointerEvents: 'auto' }}
       />
     </div>
   )

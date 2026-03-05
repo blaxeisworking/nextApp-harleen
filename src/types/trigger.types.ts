@@ -3,9 +3,9 @@ export interface TriggerTask {
   id: string;
   name: string;
   type: 'llm' | 'crop-image' | 'extract-frame' | 'custom';
-  payload: Record<string, any>;
+  payload: Record<string, unknown>;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  result?: any;
+  result?: unknown;
   error?: string;
   executionTime?: number;
   createdAt: Date;
@@ -46,7 +46,7 @@ export interface ExtractFrameTaskPayload {
 }
 
 // Task result
-export interface TaskResult<T = any> {
+export interface TaskResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

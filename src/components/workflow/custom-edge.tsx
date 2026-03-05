@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
+import { useWorkflowStore } from '@/stores/workflow-store'
 
 function CustomEdge({
   id,
@@ -22,6 +23,7 @@ function CustomEdge({
   markerEnd,
   label,
 }: EdgeProps) {
+  const removeEdge = useWorkflowStore((s) => s.removeEdge)
   const [edgePath] = getSmoothStepPath({
     sourceX,
     sourceY,
@@ -56,8 +58,10 @@ function CustomEdge({
               variant="ghost"
               size="icon"
               className="h-5 w-5 hover:bg-krea-error hover:text-white"
-              onClick={() => {
-                // Delete edge logic will be handled by React Flow
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                removeEdge(id)
               }}
             >
               <X className="w-3 h-3" />

@@ -66,7 +66,7 @@ export const userPreferencesSchema = z.object({
 });
 
 // Validation functions for API
-export const validateApiResponse = <T>(schema: z.ZodType<T>, data: any): T => {
+export const validateApiResponse = <T>(schema: z.ZodType<T>, data: unknown): T => {
   const result = schema.safeParse(data);
   if (!result.success) {
     throw new Error(`Validation error: ${result.error.message}`);
@@ -74,10 +74,10 @@ export const validateApiResponse = <T>(schema: z.ZodType<T>, data: any): T => {
   return result.data;
 };
 
-export const validateFileUpload = (data: any) => {
+export const validateFileUpload = (data: unknown) => {
   return fileUploadRequestSchema.safeParse(data);
 };
 
-export const validateUserPreferences = (data: any) => {
+export const validateUserPreferences = (data: unknown) => {
   return userPreferencesSchema.safeParse(data);
 };

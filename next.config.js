@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverActions: true,
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
   },
   images: {
     domains: [
@@ -24,6 +26,10 @@ const nextConfig = {
     config.externals.push({
       'utf-8-validate': 'commonjs utf-8-validate',
       'bufferutil': 'commonjs bufferutil',
+      'ffmpeg-static': 'commonjs ffmpeg-static',
+      'ffprobe-static': 'commonjs ffprobe-static',
+      'fluent-ffmpeg': 'commonjs fluent-ffmpeg',
+      'sharp': 'commonjs sharp',
     })
     return config
   },
